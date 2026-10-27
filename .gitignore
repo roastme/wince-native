@@ -1,0 +1,96 @@
+# wince-native - ignore rules for publishing the source tree.
+#
+# Tracked: the DSi OAL and trap entry, GWES/coredll/shell shims, compat shims,
+# ceapp/ (dsshell, frotz, lua, hello), tools/ and the build scripts.
+# Everything below is Microsoft shared-source material, generated output,
+# proprietary CE material, or a machine-local symlink farm.
+
+# ------------------------------------------- Microsoft shared-source material
+# Not redistributable: these are Microsoft CE shared-source / sample sources,
+# kept on disk so the local build still works. Restoring them from your own
+# licensed CE 5.0 / CE 6.0 source is described in README.md.
+/nk/
+/shell6/
+/asm/armtrap.S
+/asm/armtrap.S.orig
+/asm/ExVector.S
+/asm/intrlock.S
+/asm/ksarm.inc
+/asm/kxarm.inc
+/coredll/crt/
+/coredll/lmem/
+/compat/ce6sdk/
+# CRT FILE/FILEX struct body: copied from CRTW32/H/internal.h. filex_pre.h stays.
+/compat/crt/filex.h
+
+# ------------------------------------------------------- generated build tree
+# Objects, .d files, logs, screenshots, extracted CE apps and the third-party
+# clones (HeborisCE, luace, PocketClive, ibe-wince, frotz source drops).
+/build/
+/arm7/build/
+/arm7/arm7.elf
+
+# Compiler / linker / python artifacts
+*.o
+*.d
+*.a
+*.elf
+*.map
+*.nds
+*.srl
+*.sym
+*.lst
+*.log
+*.ppm
+*.png
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# The one capture that sits at the top level rather than in build/.
+/shot_final.ppm
+
+# -------------------------------------------------- generated CE headers/shim
+# Symlink overlay made by tools_ci.py (case-insensitive #include index) and the
+# Windows-path symlinks; every target is an absolute path into ../ce5-ref.
+# compat/winpath/httpext.h is an authored stub, so it stays.
+/compat/ci/
+compat/winpath/*
+!compat/winpath/httpext.h
+
+# -------------------------------------- proprietary CE binaries and images
+# Extracted ROM modules (coredll.dll, filesys.exe, ...), NAND/SD images, ROMs.
+*.dll
+*.exe
+*.lib
+*.pdb
+*.nb0
+*.bin
+*.img
+*.rom
+*.mmc
+*.nand
+*.nor
+
+# Reference material lives outside the project (see README).
+/ce5-ref/
+/ce6-ref/
+
+# ------------------------------------------------------ secrets and identity
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+.npmrc
+.netrc
+
+# ------------------------------------------------------------ editor/OS junk
+.DS_Store
+._*
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~

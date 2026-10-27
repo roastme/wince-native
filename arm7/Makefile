@@ -1,0 +1,194 @@
+# SPDX-License-Identifier: CC0-1.0
+#
+# SPDX-FileContributor: Antonio Niño Díaz, 2023
+
+export BLOCKSDS		?= /opt/blocksds/core
+export BLOCKSDSEXT	?= /opt/blocksds/external
+
+export WONDERFUL_TOOLCHAIN ?= /opt/wonderful
+ARM_NONE_EABI_PATH	?= $(WONDERFUL_TOOLCHAIN)/toolchain/gcc-arm-none-eabi/bin/
+
+
+# Source code paths
+# -----------------
+
+SOURCEDIRS	:= source
+INCLUDEDIRS	:=
+
+# Defines passed to all files
+# ---------------------------
+
+DEFINES		:= -DPICOLIBC_LONG_LONG_PRINTF_SCANF
+
+# Libraries
+# ---------
+
+# When set to 1, it will pick debug versions of libraries that provide them
+DEBUG_LIBS ?= 0
+
+USE_DSWIFI ?= 0
+USE_MAXMOD ?= 0
+USE_LIBXM7 ?= 0
+
+ifeq ($(DEBUG_LIBS),1)
+    DEFINES		+= -DDEBUG_LIBS=1
+    LIBS		:= -lnds7d
+else
+    LIBS		:= -lnds7
+endif
+LIBDIRS		:= $(BLOCKSDS)/libs/libnds
+
+# Build artifacts
+# -----------------
+
+NAME		?= arm7
+ifeq ($(NAME),arm7)
+    BUILDDIR 	:= build
+    ELF 		:= arm7.elf
+else
+    BUILDDIR	:= build/$(NAME)
+    ELF		:= arm7_$(NAME).elf
+endif
+DUMP		:= $(BUILDDIR)/$(NAME).dump
+MAP		:= $(BUILDDIR)/$(NAME).map
+
+# Tools
+# -----
+
+PREFIX		:= $(ARM_NONE_EABI_PATH)arm-none-eabi-
+CC		:= $(PREFIX)gcc
+CXX		:= $(PREFIX)g++
+OBJDUMP		:= $(PREFIX)objdump
+MKDIR		:= mkdir
+RM		:= rm -rf
+CP		:= cp
+
+# Verbose flag
+# ------------
+
+ifeq ($(VERBOSE),1)
+V		:=
+else
+V		:= @
+endif
+
+# Conditional compilation
+# -----------------------
+
+ifeq ($(USE_DSWIFI),1)
+    DEFINES += -DUSE_DSWIFI=1
+    ifeq ($(DEBUG_LIBS),1)
+        LIBS += -ldswifi7d
+    else
+        LIBS += -ldswifi7
+    endif
+    LIBDIRS += $(BLOCKSDS)/libs/dswifi
+endif
+ifeq ($(USE_MAXMOD),1)
+    DEFINES += -DUSE_MAXMOD=1
+    LIBS += -lmm7
+    LIBDIRS += $(BLOCKSDS)/libs/maxmod
+endif
+ifeq ($(USE_LIBXM7),1)
+    DEFINES += -DUSE_LIBXM7=1
+    LIBS += -lxm77
+    LIBDIRS += $(BLOCKSDS)/libs/libxm7
+endif
+
+# Source files
+# ------------
+
+SOURCES_S	:= $(shell find -L $(SOURCEDIRS) -name "*.s")
+SOURCES_C	:= $(shell find -L $(SOURCEDIRS) -name "*.c")
+SOURCES_CPP	:= $(shell find -L $(SOURCEDIRS) -name "*.cpp")
+
+# Compiler and linker flags
+# -------------------------
+
+ARCH		:= -mthumb -mcpu=arm7tdmi
+
+SPECS		:= $(BLOCKSDS)/sys/crts/ds_arm7.specs
+
+WARNFLAGS	:= -Wall -Wextra -Wpedantic
+
+ifeq ($(SOURCES_CPP),)
+    LD	:= $(CC)
+    LIBS	+= -lc
+else
+    LD	:= $(CXX)
+    LIBS	+= -lstdc++ -lc
+endif
+
+INCLUDEFLAGS	:= $(foreach path,$(INCLUDEDIRS),-I$(path)) \
+		   $(foreach path,$(LIBDIRS),-I$(path)/include)
+
+LIBDIRSFLAGS	:= $(foreach path,$(LIBDIRS),-L$(path)/lib)
+
+ASFLAGS		+= -x assembler-with-cpp $(INCLUDEFLAGS) $(DEFINES) \
+		   $(ARCH) -ffunction-sections -fdata-sections \
+		   -specs=$(SPECS)
+
+CFLAGS		+= -std=gnu23 $(WARNFLAGS) $(INCLUDEFLAGS) $(DEFINES) \
+		   $(ARCH) -O2 -ffunction-sections -fdata-sections \
+		   -specs=$(SPECS)
+
+CXXFLAGS	+= -std=gnu++23 $(WARNFLAGS) $(INCLUDEFLAGS) $(DEFINES) \
+		   $(ARCH) -O2 -ffunction-sections -fdata-sections \
+		   -fno-exceptions -fno-rtti \
+		   -specs=$(SPECS)
+
+LDFLAGS		+= $(ARCH) $(LIBDIRSFLAGS) -Wl,-Map,$(MAP) $(DEFINES) \
+		   -Wl,--start-group $(LIBS) -Wl,--end-group -specs=$(SPECS)
+
+# Intermediate build files
+# ------------------------
+
+OBJS		:= $(addsuffix .o,$(addprefix $(BUILDDIR)/,$(SOURCES_S))) \
+		   $(addsuffix .o,$(addprefix $(BUILDDIR)/,$(SOURCES_C))) \
+		   $(addsuffix .o,$(addprefix $(BUILDDIR)/,$(SOURCES_CPP)))
+
+DEPS		:= $(OBJS:.o=.d)
+
+# Targets
+# -------
+
+.PHONY: all clean dump
+
+all: $(ELF)
+
+$(ELF): $(OBJS)
+	@echo "  LD      $@"
+	$(V)$(LD) -o $@ $(OBJS) $(LDFLAGS)
+
+$(DUMP): $(ELF)
+	@echo "  OBJDUMP $@"
+	$(V)$(OBJDUMP) -h -C -S $< > $@
+
+dump: $(DUMP)
+
+clean:
+	@echo "  CLEAN"
+	$(V)$(RM) $(ELF) $(DUMP) $(MAP) $(BUILDDIR)
+
+# Rules
+# -----
+
+$(BUILDDIR)/%.s.o : %.s
+	@echo "  AS      $<"
+	@$(MKDIR) -p $(@D)
+	$(V)$(CC) $(ASFLAGS) -MMD -MP -c -o $@ $<
+
+$(BUILDDIR)/%.c.o : %.c
+	@echo "  CC      $<"
+	@$(MKDIR) -p $(@D)
+	$(V)$(CC) $(CFLAGS) -MMD -MP -c -o $@ $<
+
+$(BUILDDIR)/%.cpp.o : %.cpp
+	@echo "  CXX     $<"
+	@$(MKDIR) -p $(@D)
+	$(V)$(CXX) $(CXXFLAGS) -MMD -MP -c -o $@ $<
+
+# Include dependency files if they exist
+# --------------------------------------
+
+-include $(DEPS)
