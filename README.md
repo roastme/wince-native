@@ -9,6 +9,10 @@ and a shell bring it up far enough to run real Windows CE / Windows Mobile
 binaries off the SD card: the WM6 `coredll.dll` and `filesys.exe`, plus CE apps
 built against the public SDK headers (`ceapp/`).
 
+## Disclaimer
+
+This project was created almost entirely by AI and was not tested extensively. Backup NAND before using.
+
 ## Layout
 
 | Path | What it is |
